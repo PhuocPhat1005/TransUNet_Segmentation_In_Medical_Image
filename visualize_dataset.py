@@ -57,9 +57,9 @@ def visualize_test_sample(dataset):
 
 def main():
     # Đường dẫn đã xử lý dữ liệu và thư mục list
-    processed_train_dir = "data/processed/train"
-    processed_test_dir = "data/processed/test"
-    list_dir = "data/list"
+    processed_train_dir = "data/acdc/processed/train"
+    processed_test_dir = "data/acdc/processed/test"
+    list_dir = "data/acdc/list"
 
     # Tạo dataset cho train và test sử dụng SynapseDataset đã có
     train_dataset = SynapseDataset(base_dir=processed_train_dir, list_dir=list_dir, split='train', transform=None)
@@ -76,7 +76,6 @@ def main():
     # Hiển thị một sample của tập test (slice trung tâm của volume)
     print("Hiển thị sample từ tập TEST:")
     visualize_test_sample(test_dataset)
-
 
 if __name__ == "__main__":
     main()

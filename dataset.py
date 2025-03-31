@@ -256,14 +256,14 @@ class SynapseDataset(Dataset):
         return sample
 
 def main():
-    raw_dir = "data/raw/"
+    raw_dir = "data/synapse/raw/"
     train_img_dir = os.path.join(raw_dir, "averaged-training-images")
     train_label_dir = os.path.join(raw_dir, "averaged-training-labels")
     test_img_dir = os.path.join(raw_dir, "averaged-testing-images")
 
-    processed_train_dir = "data/processed/train"
-    processed_test_dir  = "data/processed/test"
-    list_dir = "data/list"
+    processed_train_dir = "data/synapse/processed/train"
+    processed_test_dir  = "data/synapse/processed/test"
+    list_dir = "data/synapse/list"
 
     os.makedirs(processed_train_dir, exist_ok=True)
     os.makedirs(processed_test_dir, exist_ok=True)

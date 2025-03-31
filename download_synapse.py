@@ -4,7 +4,7 @@ import synapseclient
 import synapseutils
 import os
 
-def download_synapse_dataset(auth_token, dataset_id, download_path="data/raw/"):
+def download_synapse_dataset(auth_token, dataset_id, download_path="data/synapse/raw/"):
     syn = synapseclient.Synapse() # khởi tạo đối tượng synapse
     syn.login(authToken=auth_token) # đăng nhập sử dụng personal access token (pat) được cung cấp thông qua biến auth_token
 
@@ -18,7 +18,7 @@ def download_synapse_dataset(auth_token, dataset_id, download_path="data/raw/"):
 
 if __name__ == "__main__":
     dataset_id = "syn3193805"
-    download_path = "data/raw/"
+    download_path = "data/synapse/raw/"
     load_dotenv()
     auth_token = os.getenv("SYNAPSE_AUTH_TOKEN")
 

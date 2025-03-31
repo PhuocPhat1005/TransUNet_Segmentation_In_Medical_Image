@@ -35,7 +35,7 @@ def scan_files(directory):
         print(f"  Extension '{ext}': {count} file(s)")
 
 def main():
-    download_path = "data/raw/"
+    download_path = "data/synapse/raw/"
 
 
     if not os.path.exists(download_path):
