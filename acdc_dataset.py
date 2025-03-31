@@ -10,10 +10,12 @@ import torch
 from scipy import ndimage
 from scipy.ndimage import zoom
 from torch.utils.data import DataLoader, Dataset
+import re
 
 class ACDCPreprocessor:
-    def __init__(self, clip_range=(-125, 275)):
+    def __init__(self, clip_range=(-125, 275), target_shape=(224, 224)):
         self.clip_range = clip_range
+        self.target_shape = target_shape
 
     def load_nii(self, file_path):
         nii = nib.load(file_path)
@@ -23,6 +25,22 @@ class ACDCPreprocessor:
         volume_clipped = np.clip(volume, self.clip_range[0], self.clip_range[1])
         volume_norm = (volume_clipped - self.clip_range[0]) / (self.clip_range[1] - self.clip_range[0])
         return volume_norm
+
+    def resize_slice(self, slice_img, target_shape, order=3):
+        """
+        Resize một slice ảnh về kích thước target_shape.
+
+        Args:
+            slice_img (np.ndarray): Ảnh 2D.
+            target_shape (tuple): (height, width) mong muốn.
+            order (int): Thứ tự nội suy (order=3 cho ảnh, order=0 cho nhãn).
+        Returns:
+            np.ndarray: Ảnh đã được resize.
+        """
+        current_shape = slice_img.shape
+        zoom_factors = (target_shape[0] / current_shape[0], target_shape[1] / current_shape[1])
+        return zoom(slice_img, zoom_factors, order=order)
+
     def extract_slices(self, volume, label_volume=None):
         slices = []
         num_slices = volume.shape[2]
@@ -36,6 +54,7 @@ class ACDCPreprocessor:
             else:
                 slices.append(img_slice)
         return slices
+
     def save_slice_npz(self, image_slice, label_slice, out_path):
         np.savez_compressed(out_path, image=image_slice, label=label_slice)
 
@@ -43,7 +62,7 @@ class ACDCPreprocessor:
         with h5py.File(out_path, "w") as hf:
             hf.create_dataset("image", data=volume)
 
-    def process_training_data(self, image_dir, label_dir, output_dir, list_file_path):
+    def process_training_data(self, image_dir, output_dir, list_file_path):
         """
         Xử lý dữ liệu huấn luyện:
          - Duyệt qua các bệnh nhân trong thư mục training (ví dụ: data/acdc/raw/training/patientXXX/).
@@ -54,14 +73,14 @@ class ACDCPreprocessor:
         """
         os.makedirs(output_dir, exist_ok=True)
         # Lấy danh sách bệnh nhân (thư mục con trong image_dir)
+        # ở đây, ảnh và nhãn nằm chung trong mỗi folder patient
         patient_dirs = sorted([d for d in os.listdir(image_dir) if os.path.isdir(os.path.join(image_dir, d))])
         print("Số lượng bệnh nhân training:", len(patient_dirs))
         slice_names = []
         for patient in patient_dirs:
-            patient_img_dir = os.path.join(image_dir, patient)
-            patient_lbl_dir = os.path.join(label_dir, patient)
+            patient_dir = os.path.join(image_dir, patient)
             # Lấy các file ảnh 3D không chứa _gt và '4d'
-            img_files = sorted([f for f in os.listdir(patient_img_dir)
+            img_files = sorted([f for f in os.listdir(patient_dir)
                                 if f.endswith('.nii.gz') and '_gt' not in f and '4d' not in f])
             for img_file in img_files:
                 # Nếu file ảnh kết thúc bằng '.nii.gz', loại bỏ 7 ký tự cuối để lấy case_id
@@ -71,8 +90,8 @@ class ACDCPreprocessor:
                     case_id = os.path.splitext(img_file)[0]
                 # Tạo tên file nhãn bằng cách thêm '_gt.nii.gz'
                 label_file = case_id + "_gt.nii.gz"
-                img_path = os.path.join(patient_img_dir, img_file)
-                label_path = os.path.join(patient_lbl_dir, label_file)
+                img_path = os.path.join(patient_dir, img_file)
+                label_path = os.path.join(patient_dir, label_file)
                 try:
                     volume = self.load_nii(img_path)
                     label_volume = self.load_nii(label_path)
@@ -83,9 +102,12 @@ class ACDCPreprocessor:
                 slices = self.extract_slices(volume_norm, label_volume)
                 print(f"{case_id}: Tách được {len(slices)} slice có nhãn")
                 for i, (img_slice, label_slice) in enumerate(slices):
+                    # Resize mỗi slice về target_shape
+                    img_slice_resized = self.resize_slice(img_slice, self.target_shape, order=3)
+                    label_slice_resized = self.resize_slice(label_slice, self.target_shape, order=0)
                     slice_name = f"{case_id}_slice_{i:03d}"
                     out_file = os.path.join(output_dir, f"{slice_name}.npz")
-                    self.save_slice_npz(img_slice, label_slice, out_file)
+                    self.save_slice_npz(img_slice_resized, label_slice_resized, out_file)
                     slice_names.append(slice_name)
         with open(list_file_path, 'w') as f:
             for name in slice_names:
@@ -104,25 +126,33 @@ class ACDCPreprocessor:
         print("Số lượng bệnh nhân testing:", len(patient_dirs))
         case_names = []
         for patient in patient_dirs:
-            patient_img_dir = os.path.join(image_dir, patient)
+            patient_dir = os.path.join(image_dir, patient)
             # Lấy file ảnh đại diện: chọn file đầu tiên không chứa '_gt', '4d', 'Info', 'MANDATORY'
-            vol_files = sorted([f for f in os.listdir(patient_img_dir)
+            vol_files = sorted([f for f in os.listdir(patient_dir)
                                 if f.endswith('.nii.gz') and '_gt' not in f and '4d' not in f
                                 and 'Info' not in f and 'MANDATORY' not in f])
             if len(vol_files) == 0:
                 continue
             vol_file = vol_files[0]
-            case_id = os.path.splitext(vol_file)[0]
-            img_path = os.path.join(patient_img_dir, vol_file)
+            case_id = re.sub(r'\.nii\.gz$', '', vol_file)
+            img_path = os.path.join(patient_dir, vol_file)
             try:
                 volume = self.load_nii(img_path)
             except Exception as e:
                 print(f"Lỗi khi load file testing cho {case_id}: {e}")
                 continue
             volume_norm = self.clip_and_normalize(volume)
+            # Resize từng slice 2D của volume về self.target_shape
+            resized_slices = []
+            num_slices = volume_norm.shape[2]
+            for i in range(num_slices):
+                slice_img = volume_norm[:, :, i]
+                slice_img_resized = self.resize_slice(slice_img, self.target_shape, order=3)
+                resized_slices.append(slice_img_resized)
+            resized_volume = np.stack(resized_slices, axis=2)
             out_file = os.path.join(output_dir, f"{case_id}.npy.h5")
-            self.save_volume_h5(volume_norm, out_file)
-            print(f"Lưu testing volume cho {case_id} vào {out_file}")
+            self.save_volume_h5(resized_volume, out_file)
+            print(f"Lưu testing volume cho {case_id} với shape {resized_volume.shape} vào {out_file}")
             case_names.append(case_id)
         with open(list_file_path, 'w') as f:
             for name in case_names:
@@ -252,7 +282,6 @@ class ACDCDataset(Dataset):
 def main():
     raw_dir = "data/acdc/raw"
     raw_train_dir = os.path.join(raw_dir, "training")
-    raw_train_label_dir = os.path.join(raw_dir, "training")
     raw_test_dir = os.path.join(raw_dir, "testing")
 
     # Đường dẫn lưu dữ liệu đã tiền xử lý:
@@ -269,7 +298,6 @@ def main():
     print("\n=== Xử lý dữ liệu TRAINING ACDC ===")
     preprocessor.process_training_data(
         image_dir=raw_train_dir,
-        label_dir=raw_train_label_dir,
         output_dir=processed_train_dir,
         list_file_path=os.path.join(list_dir, "train.txt")
     )

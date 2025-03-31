@@ -5,7 +5,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 import numpy as np
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
-from dataset import SynapseDataset
+from synapse_dataset import SynapseDataset
 
 
 def visualize_train_sample(dataset):

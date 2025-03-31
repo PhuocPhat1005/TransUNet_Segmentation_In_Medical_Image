@@ -10,8 +10,9 @@ import torch
 from scipy import ndimage
 from scipy.ndimage import zoom
 from torch.utils.data import DataLoader, Dataset
+import re
 
-class Preprocessor:
+class SynapsePreprocessor:
     """
     Class Preprocessor cung cấp các phương thức để xử lý raw data cho bộ dataset Synapse.
 
@@ -21,8 +22,9 @@ class Preprocessor:
     - Tách volume 3D thành các slice 2D (có thể kèm nhãn nếu có).
     """
 
-    def __init__(self, clip_range=(-125, 275)):
+    def __init__(self, clip_range=(-125, 275), target_shape=(224, 224)):
         self.clip_range = clip_range
+        self.target_shape = target_shape
 
     #  Hàm load file NIfIT (.nii.gz) dùng nibabel
     def load_nii(self, file_path):
@@ -36,6 +38,21 @@ class Preprocessor:
         # Normalize về khoảng [0, 1] bằng công thức min-max normalization
         volume_norm = (volume_clipped - self.clip_range[0]) / (self.clip_range[1] - self.clip_range[0])
         return volume_norm
+
+    def resize_slice(self, slice_img, target_shape, order=3):
+        """
+        Resize một slice ảnh về kích thước target_shape.
+
+        Args:
+            slice_img (np.ndarray): Ảnh 2D.
+            target_shape (tuple): (height, width) mong muốn.
+            order (int): Thứ tự nội suy (order=3 cho ảnh, order=0 cho nhãn).
+        Returns:
+            np.ndarray: Ảnh đã được resize.
+        """
+        current_shape = slice_img.shape
+        zoom_factors = (target_shape[0] / current_shape[0], target_shape[1] / current_shape[1])
+        return zoom(slice_img, zoom_factors, order=order)
 
     # Hàm tách các slice 2D từ volume 3D
     def extract_slices(self, volume, label_volume = None):
@@ -54,7 +71,6 @@ class Preprocessor:
             img_slice = volume[:, :, i]
             if label_volume is not None:
                 label_slice = label_volume[:, :, i]
-                # Chỉ lấy slice nếu có ít nhất 1 pixel không bằng 0 trong nhãn
                 if np.sum(label_slice) == 0:
                     continue
                 slices.append((img_slice, label_slice))
@@ -81,18 +97,25 @@ class Preprocessor:
 
             img_path = os.path.join(image_dir, img_file)
             label_path = os.path.join(label_dir, label_file)
+            try:
+                volume = self.load_nii(img_path)
+                label_volume = self.load_nii(label_path)
+            except Exception as e:
+                print(f"Lỗi khi load file cho {case_id}: {e}")
+                continue
 
-            volume = self.load_nii(img_path)
-            label_volume = self.load_nii(label_path)
             volume_norm = self.clip_and_normalize(volume)
             slices = self.extract_slices(volume_norm, label_volume)
 
             print(f"{case_id}: Tách được {len(slices)} slice có nhãn")
 
             for i, (img_slice, label_slice) in enumerate(slices):
+                # Resize mỗi slice vể target_shape
+                img_slice_resized = self.resize_slice(img_slice, self.target_shape, order=3)
+                label_slice_resized = self.resize_slice(label_slice, self.target_shape, order=0)
                 slice_name = f"{case_id}_slice_{i:03d}"
                 out_file = os.path.join(output_dir, f"{slice_name}.npz")
-                np.savez_compressed(out_file, image=img_slice, label=label_slice)
+                self.save_slice_npz(img_slice_resized, label_slice_resized, out_file)
                 slice_names.append(slice_name)
 
         with open(list_file_path, 'w') as f:
@@ -109,21 +132,30 @@ class Preprocessor:
             case_id = img_file.split("_avg")[0]
             img_path = os.path.join(image_dir, img_file)
 
-            volume = self.load_nii(img_path)
+            try:
+                volume = self.load_nii(img_path)
+            except Exception as e:
+                print(f"Lỗi khi load file testing cho {case_id}: {e}")
+                continue
             volume_norm = self.clip_and_normalize(volume)
-
+            # Resize từng slice 2D của volume về self.target_shape
+            resized_slices = []
+            num_slices = volume_norm.shape[2]
+            for i in range(num_slices):
+                slice_img = volume_norm[:, :, i]
+                slice_img_resized = self.resize_slice(slice_img, self.target_shape, order=3)
+                resized_slices.append(slice_img_resized)
+            resized_volume = np.stack(resized_slices, axis=2)
             out_file = os.path.join(output_dir, f"{case_id}.npy.h5")
-            with h5py.File(out_file, "w") as hf:
-                hf.create_dataset("image", data=volume_norm)
-
-            print(f"Lưu testing volume cho {case_id} vào {out_file}")
+            self.save_volume_h5(resized_volume, out_file)
+            print(f"Lưu testing volume cho {case_id} với shape {resized_volume.shape} vào {out_file}")
             case_names.append(case_id)
 
         with open(list_file_path, 'w') as f:
             for name in case_names:
                 f.write(name + '\n')
 
-class Augmentor:
+class SynapseAugmentor:
     # Hàm biến đổi: xoay ảnh 90 độ, và lật ảnh ngẫu nhiên
     @staticmethod
     def random_rot_flip(image, label):
@@ -269,7 +301,7 @@ def main():
     os.makedirs(processed_test_dir, exist_ok=True)
     os.makedirs(list_dir, exist_ok=True)
 
-    preprocessor = Preprocessor()
+    preprocessor = SynapsePreprocessor()
 
     print("\n=== Xử lý dữ liệu TRAINING ===")
     preprocessor.process_training_data(
@@ -290,7 +322,7 @@ def main():
 
     # === Augmentation & Testing sau preprocessing ===
     print("\n=== Augmentation & Tải dữ liệu TRAINING ===")
-    train_transform = Augmentor(output_size=(224, 224))
+    train_transform = SynapseAugmentor(output_size=(224, 224))
     train_dataset = SynapseDataset(
         base_dir=processed_train_dir,
         list_dir=list_dir,
