@@ -113,9 +113,9 @@ class ACDCPreprocessor:
             for name in slice_names:
                 f.write(name + "\n")
 
-    def process_testing_data(self, image_dir, output_dir, list_file_path):
+    def process_testing_data_3d(self, image_dir, output_dir, list_file_path):
         """
-        Xử lý dữ liệu testing của ACDC:
+        Xử lý dữ liệu testing 3D của ACDC:
           - Duyệt qua các bệnh nhân trong thư mục testing (ví dụ: data/acdc/raw/testing/patientYYY/).
           - Trong mỗi bệnh nhân, chọn file ảnh đại diện (chỉ file 3D, loại bỏ file chứa '4d', _gt, Info, MANDATORY, …).
           - Load, clip & normalize volume và lưu nguyên volume 3D dưới dạng file HDF5 (.npy.h5).
@@ -123,7 +123,7 @@ class ACDCPreprocessor:
         """
         os.makedirs(output_dir, exist_ok=True)
         patient_dirs = sorted([d for d in os.listdir(image_dir) if os.path.isdir(os.path.join(image_dir, d))])
-        print("Số lượng bệnh nhân testing:", len(patient_dirs))
+        print("Số lượng bệnh nhân testing (3D):", len(patient_dirs))
         case_names = []
         for patient in patient_dirs:
             patient_dir = os.path.join(image_dir, patient)
@@ -156,6 +156,58 @@ class ACDCPreprocessor:
             case_names.append(case_id)
         with open(list_file_path, 'w') as f:
             for name in case_names:
+                f.write(name + "\n")
+
+    def process_testing_data_2d(self, image_dir, output_dir, list_file_path):
+        """
+        Xử lý dữ liệu testing dạng 2D của ACDC:
+        - Duyệt qua các bệnh nhân trong thư mục testing
+        - Chọn file ảnh đại diện (loại bỏ các file chứa '_gt', '4d', 'Info', 'MANDATORY', ...)
+        - Load, clip & normalize volume
+        - Tách volume thành các slice 2D.
+        - Resize mỗi slice về self.target_shape
+        - Lưu từng slice dưới dạng file.npz (với nhãn mặc định là mảng zeros) và ghi tên vào list_file_path
+        """
+        os.makedirs(output_dir, exist_ok=True)
+        # Lấy danh sách bệnh nhân (thư mục con trong image_dir)
+        # ở đây, ảnh và nhãn nằm chung trong mỗi folder patient
+        patient_dirs = sorted([d for d in os.listdir(image_dir) if os.path.isdir(os.path.join(image_dir, d))])
+        print("Số lượng bệnh nhân testing (2D):", len(patient_dirs))
+        slice_names = []
+        for patient in patient_dirs:
+            patient_dir = os.path.join(image_dir, patient)
+            # Lấy các file ảnh 3D không chứa _gt và '4d'
+            img_files = sorted([f for f in os.listdir(patient_dir)
+                                if f.endswith('.nii.gz') and '_gt' not in f and '4d' not in f])
+            for img_file in img_files:
+                # Nếu file ảnh kết thúc bằng '.nii.gz', loại bỏ 7 ký tự cuối để lấy case_id
+                if img_file.endswith('.nii.gz'):
+                    case_id = img_file[:-7]
+                else:
+                    case_id = os.path.splitext(img_file)[0]
+                # Tạo tên file nhãn bằng cách thêm '_gt.nii.gz'
+                label_file = case_id + "_gt.nii.gz"
+                img_path = os.path.join(patient_dir, img_file)
+                label_path = os.path.join(patient_dir, label_file)
+                try:
+                    volume = self.load_nii(img_path)
+                    label_volume = self.load_nii(label_path)
+                except Exception as e:
+                    print(f"Lỗi khi load file cho {case_id}: {e}")
+                    continue
+                volume_norm = self.clip_and_normalize(volume)
+                slices = self.extract_slices(volume_norm, label_volume)
+                print(f"{case_id}: Tách được {len(slices)} slice có nhãn")
+                for i, (img_slice, label_slice) in enumerate(slices):
+                    # Resize mỗi slice về target_shape
+                    img_slice_resized = self.resize_slice(img_slice, self.target_shape, order=3)
+                    label_slice_resized = self.resize_slice(label_slice, self.target_shape, order=0)
+                    slice_name = f"{case_id}_slice_{i:03d}"
+                    out_file = os.path.join(output_dir, f"{slice_name}.npz")
+                    self.save_slice_npz(img_slice_resized, label_slice_resized, out_file)
+                    slice_names.append(slice_name)
+        with open(list_file_path, 'w') as f:
+            for name in slice_names:
                 f.write(name + "\n")
 
 class ACDCAugmentor:
@@ -269,10 +321,15 @@ class ACDCDataset(Dataset):
             data = np.load(path)
             image, label = data['image'], data['label']
         else:
-            path = os.path.join(self.data_dir, f"{case_name}.npy.h5")
-            data = h5py.File(path, 'r')
-            image = data['image'][:]
-            label = data.get('label', np.zeros_like(image))[:]  # Nếu không có nhãn, tạo mảng zeros.
+            if os.path.exists(os.path.join(self.data_dir, case_name + '.npz')):
+                path = os.path.join(self.data_dir, case_name + '.npz')
+                data = np.load(path)
+                image, label = data['image'], data['label']
+            else:
+                path = os.path.join(self.data_dir, f"{case_name}.npy.h5")
+                data = h5py.File(path, 'r')
+                image = data['image'][:]
+                label = data.get('label', np.zeros_like(image))[:]
         sample = {'image': image, 'label': label}
         if self.transform:
             sample = self.transform(sample)
@@ -286,11 +343,13 @@ def main():
 
     # Đường dẫn lưu dữ liệu đã tiền xử lý:
     processed_train_dir = os.path.join("data/acdc/processed/train")
-    processed_test_dir = os.path.join("data/acdc/processed/test")
+    processed_test_dir_3d = os.path.join("data/acdc/processed/test/3d")
+    processed_test_dir_2d = os.path.join("data/acdc/processed/test/2d")
     list_dir = os.path.join("data/acdc/list")
 
     os.makedirs(processed_train_dir, exist_ok=True)
-    os.makedirs(processed_test_dir, exist_ok=True)
+    os.makedirs(processed_test_dir_3d, exist_ok=True)
+    os.makedirs(processed_test_dir_2d, exist_ok=True)
     os.makedirs(list_dir, exist_ok=True)
 
     preprocessor = ACDCPreprocessor()
@@ -302,11 +361,18 @@ def main():
         list_file_path=os.path.join(list_dir, "train.txt")
     )
 
-    print("\n=== Xử lý dữ liệu TESTING ACDC ===")
-    preprocessor.process_testing_data(
+    print("\n=== Xử lý dữ liệu TESTING ACDC (3D) ===")
+    preprocessor.process_testing_data_3d(
         image_dir=raw_test_dir,
-        output_dir=processed_test_dir,
-        list_file_path=os.path.join(list_dir, "test.txt")
+        output_dir=processed_test_dir_3d,
+        list_file_path=os.path.join(list_dir, "test_3d.txt")
+    )
+
+    print("\n=== Xử lý dữ liệu TESTING ACDC (2D) ===")
+    preprocessor.process_testing_data_2d(
+        image_dir=raw_test_dir,
+        output_dir=processed_test_dir_2d,
+        list_file_path=os.path.join(list_dir, "test_2d.txt")
     )
 
     print("\nTiền xử lý raw data ACDC hoàn tất!")
@@ -314,6 +380,7 @@ def main():
     # === Augmentation & Data Loading cho tập TRAIN ===
     print("\n=== Tải dữ liệu TRAIN ACDC với Augmentation ===")
     train_transform = ACDCAugmentor(output_size=(224, 224))
+    test_transform = ACDCAugmentor(output_size=(224, 224))
     train_dataset = ACDCDataset(
         base_dir=processed_train_dir,
         list_dir=list_dir,
@@ -326,18 +393,29 @@ def main():
         print(f"Batch TRAIN - Hình ảnh: {batch['image'].shape}, Nhãn: {batch['label'].shape}")
         break
 
-    # === Data Loading cho tập TEST (không dùng augmentation) ===
-    print("\n=== Tải dữ liệu TEST ACDC ===")
-    test_dataset = ACDCDataset(
-        base_dir=processed_test_dir,
+    # === Data Loading cho tập TEST ===
+    print("\n=== Tải dữ liệu TEST ACDC (3D, có Augmentation) ===")
+    test_dataset_3d = ACDCDataset(
+        base_dir=processed_test_dir_3d,
         list_dir=list_dir,
         split='test',
         transform=None
     )
-    test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=1)
+    test_loader_3d = DataLoader(test_dataset_3d, batch_size=1, shuffle=False, num_workers=1)
+    for batch in test_loader_3d:
+        print(f"Case TEST (3D) - Hình ảnh: {batch['image'].shape}, Tên: {batch['case_name']}")
+        break
 
-    for batch in test_loader:
-        print(f"Case TEST - Hình ảnh: {batch['image'].shape}, Tên: {batch['case_name']}")
+    print("\n=== Tải dữ liệu TEST ACDC (2D, có Augmentation) ===")
+    test_dataset_2d = ACDCDataset(
+        base_dir=processed_test_dir_2d,
+        list_dir=list_dir,
+        split='test',
+        transform=test_transform
+    )
+    test_loader_2d = DataLoader(test_dataset_2d, batch_size=1, shuffle=False, num_workers=1)
+    for batch in test_loader_2d:
+        print(f"Case TEST (2D) - Hình ảnh: {batch['image'].shape}, Tên: {batch['case_name']}")
         break
 
     print("\nAugmentation và kiểm tra dữ liệu ACDC đã sẵn sàng!")
