@@ -37,7 +37,6 @@ def scan_files(directory):
 def main():
     download_path = "data/synapse/raw/"
 
-
     if not os.path.exists(download_path):
         print(f"Directory '{download_path}' does not exist. Vui lòng kiểm tra lại đường dẫn.")
         return
