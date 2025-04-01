@@ -398,7 +398,7 @@ def main():
     test_dataset_3d = ACDCDataset(
         base_dir=processed_test_dir_3d,
         list_dir=list_dir,
-        split='test',
+        split='test_3d',
         transform=None
     )
     test_loader_3d = DataLoader(test_dataset_3d, batch_size=1, shuffle=False, num_workers=1)
@@ -410,7 +410,7 @@ def main():
     test_dataset_2d = ACDCDataset(
         base_dir=processed_test_dir_2d,
         list_dir=list_dir,
-        split='test',
+        split='test_2d',
         transform=test_transform
     )
     test_loader_2d = DataLoader(test_dataset_2d, batch_size=1, shuffle=False, num_workers=1)
