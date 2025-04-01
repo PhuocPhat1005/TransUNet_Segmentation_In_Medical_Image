@@ -3,16 +3,20 @@ import sys
 import torch
 
 from trainer import Trainer
+from inference import Inference
 
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
-  parser.add_argument('--mode', type=str, required=True, choices=['train', 'test'])
+  parser.add_argument('--mode', type=str, required=True, choices=['train', 'infer'])
   parser.add_argument('--dataset_name', required='train' in sys.argv, type=str, choices=['Synapse'])
   parser.add_argument('--train_path', required='train' in sys.argv,  type=str, default=None)
   parser.add_argument('--test_path', required='train' in sys.argv, type=str, default=None)
-  parser.add_argument('--save_path', required=True, type=str, default=None)
-  parser.add_argument('--pretrain_path', type=str, default=None)
+  parser.add_argument('--save_path', required='train' in sys.argv, type=str, default=None)
+  parser.add_argument('--pretrain_path', required='infer' in sys.argv, type=str, default=None)
+  parser.add_argument('--image_path', required='infer' in sys.argv, type=str, default=None)
+  parser.add_argument('--merge_infer', type=bool, default=False)
+  parser.add_argument('--save_infer', type=bool, default=False)
 
   parser.add_argument('--epochs', type=int, default=200)
   parser.add_argument('--batch_size', type=int, default=16)
@@ -20,6 +24,7 @@ if __name__ == '__main__':
   parser.add_argument('--momentum', type=float, default=0.9)
   parser.add_argument('--weight_decay', type=float, default=1e-4)
   parser.add_argument('--patience', type=int, default=25)
+  parser.add_argument('--inference_threshold', type=float, default=0.75)
 
   parser.add_argument('--image_dim', type=int, default=512)
   parser.add_argument('--in_channels', type=int, default=1)
@@ -36,5 +41,6 @@ if __name__ == '__main__':
   if args.mode == 'train':
     trainer = Trainer(args)
     trainer.train()
-  elif args.mode == 'test':
-    pass
+  elif args.mode == 'infer':
+    inference = Inference(args)
+    inference.infer()
