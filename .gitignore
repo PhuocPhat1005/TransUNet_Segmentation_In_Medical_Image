@@ -181,4 +181,4 @@ __pycache__/
 *.nii.gz
 .env
 samples/
-src/model/
+src/model/vit_checkpoint/
