@@ -12,6 +12,18 @@ from scipy.ndimage import zoom
 from torch.utils.data import DataLoader, Dataset
 import re
 
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+print(f"Project root directory: {project_root}")
+
+RAW_DIR = os.path.join(project_root, "data", "synapse", "raw")
+TRAIN_IMG_DIR = os.path.join(RAW_DIR, "averaged-training-images")
+TRAIN_LABEL_DIR = os.path.join(RAW_DIR, "averaged-training-labels")
+TEST_IMG_DIR = os.path.join(RAW_DIR, "averaged-testing-images")
+
+PROCESSED_TRAIN_DIR = os.path.join(project_root, "data", "synapse", "processed", "train")
+PROCESSED_TEST_DIR = os.path.join(project_root, "data", "synapse", "processed", "test")
+LIST_DIR = os.path.join(project_root, "data", "synapse", "list")
+
 class SynapsePreprocessor:
     """
     Class Preprocessor cung cấp các phương thức để xử lý raw data cho bộ dataset Synapse.
@@ -288,34 +300,33 @@ class SynapseDataset(Dataset):
         return sample
 
 def main():
-    raw_dir = "data/synapse/raw/"
-    train_img_dir = os.path.join(raw_dir, "averaged-training-images")
-    train_label_dir = os.path.join(raw_dir, "averaged-training-labels")
-    test_img_dir = os.path.join(raw_dir, "averaged-testing-images")
+    print("Raw Train Image Dir:", TRAIN_IMG_DIR)
+    print("Raw Train Label Dir:", TRAIN_LABEL_DIR)
+    print("Raw Test Dir:", TEST_IMG_DIR)
+    print("Processed Train Dir:", PROCESSED_TRAIN_DIR)
+    print("Processed Test Dir:", PROCESSED_TEST_DIR)
+    print("List Dir:", LIST_DIR)
 
-    processed_train_dir = "data/synapse/processed/train"
-    processed_test_dir  = "data/synapse/processed/test"
-    list_dir = "data/synapse/list"
-
-    os.makedirs(processed_train_dir, exist_ok=True)
-    os.makedirs(processed_test_dir, exist_ok=True)
-    os.makedirs(list_dir, exist_ok=True)
+    # Tạo thư mục nếu chưa tồn tại
+    os.makedirs(PROCESSED_TRAIN_DIR, exist_ok=True)
+    os.makedirs(PROCESSED_TEST_DIR, exist_ok=True)
+    os.makedirs(LIST_DIR, exist_ok=True)
 
     preprocessor = SynapsePreprocessor()
 
     print("\n=== Xử lý dữ liệu TRAINING ===")
     preprocessor.process_training_data(
-        image_dir=train_img_dir,
-        label_dir=train_label_dir,
-        output_dir=processed_train_dir,
-        list_file_path=os.path.join(list_dir, "train.txt")
+        image_dir=TRAIN_IMG_DIR,
+        label_dir=TRAIN_LABEL_DIR,
+        output_dir=PROCESSED_TRAIN_DIR,
+        list_file_path=os.path.join(LIST_DIR, "train.txt")
     )
 
     print("\n=== Xử lý dữ liệu TESTING ===")
     preprocessor.process_testing_data(
-        image_dir=test_img_dir,
-        output_dir=processed_test_dir,
-        list_file_path=os.path.join(list_dir, "test.txt")
+        image_dir=TEST_IMG_DIR,
+        output_dir=PROCESSED_TEST_DIR,
+        list_file_path=os.path.join(LIST_DIR, "test.txt")
     )
 
     print("\nTiền xử lý raw data hoàn tất!")
@@ -324,8 +335,8 @@ def main():
     print("\n=== Augmentation & Tải dữ liệu TRAINING ===")
     train_transform = SynapseAugmentor(output_size=(224, 224))
     train_dataset = SynapseDataset(
-        base_dir=processed_train_dir,
-        list_dir=list_dir,
+        base_dir=PROCESSED_TRAIN_DIR,
+        list_dir=LIST_DIR,
         split='train',
         transform=train_transform
     )
@@ -338,8 +349,8 @@ def main():
 
     print("\n=== Tải dữ liệu TESTING ===")
     test_dataset = SynapseDataset(
-        base_dir=processed_test_dir,
-        list_dir=list_dir,
+        base_dir=PROCESSED_TEST_DIR,
+        list_dir=LIST_DIR,
         split='test',
         transform=None  # Không cần augment tập test
     )

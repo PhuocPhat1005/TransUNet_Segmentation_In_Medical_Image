@@ -12,6 +12,22 @@ from scipy.ndimage import zoom
 from torch.utils.data import DataLoader, Dataset
 import re
 
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+print(f"Project root directory: {project_root}")
+
+# Đường dẫn đến thư mục chứa dữ liệu thô ACDC
+RAW_DIR = os.path.join(project_root, "data", "acdc", "raw")
+TRAIN_RAW_DIR = os.path.join(RAW_DIR, "training")
+TEST_RAW_DIR = os.path.join(RAW_DIR, "testing")
+
+# Đường dẫn đến thư mục chứa dữ liệu đã tiền xử lý
+PROCESSED_TRAIN_DIR = os.path.join(project_root, "data", "acdc", "processed", "train")
+PROCESSED_TEST_DIR_3D = os.path.join(project_root, "data", "acdc", "processed", "test", "3d")
+PROCESSED_TEST_DIR_2D = os.path.join(project_root, "data", "acdc", "processed", "test", "2d")
+
+# Đường dẫn đến file list
+LIST_DIR = os.path.join(project_root, "data", "acdc", "list")
+
 class ACDCPreprocessor:
     def __init__(self, clip_range=(-125, 275), target_shape=(224, 224)):
         self.clip_range = clip_range
@@ -337,42 +353,36 @@ class ACDCDataset(Dataset):
         return sample
 
 def main():
-    raw_dir = "data/acdc/raw"
-    raw_train_dir = os.path.join(raw_dir, "training")
-    raw_test_dir = os.path.join(raw_dir, "testing")
 
-    # Đường dẫn lưu dữ liệu đã tiền xử lý:
-    processed_train_dir = os.path.join("data/acdc/processed/train")
-    processed_test_dir_3d = os.path.join("data/acdc/processed/test/3d")
-    processed_test_dir_2d = os.path.join("data/acdc/processed/test/2d")
-    list_dir = os.path.join("data/acdc/list")
+    raw_train_dir = TRAIN_RAW_DIR  # VD: data/acdc/raw/training
+    raw_test_dir = TEST_RAW_DIR
 
-    os.makedirs(processed_train_dir, exist_ok=True)
-    os.makedirs(processed_test_dir_3d, exist_ok=True)
-    os.makedirs(processed_test_dir_2d, exist_ok=True)
-    os.makedirs(list_dir, exist_ok=True)
+    os.makedirs(PROCESSED_TRAIN_DIR, exist_ok=True)
+    os.makedirs(PROCESSED_TEST_DIR_3D, exist_ok=True)
+    os.makedirs(PROCESSED_TEST_DIR_2D, exist_ok=True)
+    os.makedirs(LIST_DIR, exist_ok=True)
 
     preprocessor = ACDCPreprocessor()
 
     print("\n=== Xử lý dữ liệu TRAINING ACDC ===")
     preprocessor.process_training_data(
         image_dir=raw_train_dir,
-        output_dir=processed_train_dir,
-        list_file_path=os.path.join(list_dir, "train.txt")
+        output_dir=PROCESSED_TRAIN_DIR,
+        list_file_path=os.path.join(LIST_DIR, "train.txt")
     )
 
     print("\n=== Xử lý dữ liệu TESTING ACDC (3D) ===")
     preprocessor.process_testing_data_3d(
         image_dir=raw_test_dir,
-        output_dir=processed_test_dir_3d,
-        list_file_path=os.path.join(list_dir, "test_3d.txt")
+        output_dir=PROCESSED_TEST_DIR_3D,
+        list_file_path=os.path.join(LIST_DIR, "test_3d.txt")
     )
 
     print("\n=== Xử lý dữ liệu TESTING ACDC (2D) ===")
     preprocessor.process_testing_data_2d(
         image_dir=raw_test_dir,
-        output_dir=processed_test_dir_2d,
-        list_file_path=os.path.join(list_dir, "test_2d.txt")
+        output_dir=PROCESSED_TEST_DIR_2D,
+        list_file_path=os.path.join(LIST_DIR, "test_2d.txt")
     )
 
     print("\nTiền xử lý raw data ACDC hoàn tất!")
@@ -382,8 +392,8 @@ def main():
     train_transform = ACDCAugmentor(output_size=(224, 224))
     test_transform = ACDCAugmentor(output_size=(224, 224))
     train_dataset = ACDCDataset(
-        base_dir=processed_train_dir,
-        list_dir=list_dir,
+        base_dir=PROCESSED_TRAIN_DIR,
+        list_dir=LIST_DIR,
         split='train',
         transform=train_transform
     )
@@ -396,8 +406,8 @@ def main():
     # === Data Loading cho tập TEST ===
     print("\n=== Tải dữ liệu TEST ACDC (3D, có Augmentation) ===")
     test_dataset_3d = ACDCDataset(
-        base_dir=processed_test_dir_3d,
-        list_dir=list_dir,
+        base_dir=PROCESSED_TEST_DIR_3D,
+        list_dir=LIST_DIR,
         split='test_3d',
         transform=None
     )
@@ -408,8 +418,8 @@ def main():
 
     print("\n=== Tải dữ liệu TEST ACDC (2D, có Augmentation) ===")
     test_dataset_2d = ACDCDataset(
-        base_dir=processed_test_dir_2d,
-        list_dir=list_dir,
+        base_dir=PROCESSED_TEST_DIR_2D,
+        list_dir=LIST_DIR,
         split='test_2d',
         transform=test_transform
     )

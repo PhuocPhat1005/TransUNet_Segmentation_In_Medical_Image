@@ -7,6 +7,15 @@ import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from synapse_dataset import SynapseDataset
 
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+print(f"Project root directory: {project_root}")
+
+# Đường dẫn processed data và file list dựa trên project root
+processed_train_dir = os.path.join(project_root, "data", "acdc", "processed", "train")
+processed_test_dir = os.path.join(project_root, "data", "acdc", "processed", "test")
+processed_test_dir_2d = os.path.join(project_root, "data", "acdc", "processed", "test", "2d")
+processed_test_dir_3d = os.path.join(project_root, "data", "acdc", "processed", "test", "3d")
+list_dir = os.path.join(project_root, "data", "acdc", "list")
 
 def visualize_train_sample(dataset):
     """
@@ -56,14 +65,14 @@ def visualize_test_sample(dataset):
 
 
 def main():
-    # Đường dẫn đã xử lý dữ liệu và thư mục list
-    processed_train_dir = "data/acdc/processed/train"
-    processed_test_dir = "data/acdc/processed/test"
-    list_dir = "data/acdc/list"
+    print("Project root:", project_root)
+    print("Processed Train Dir:", processed_train_dir)
+    print("Processed Test Dir:", processed_test_dir)
+    print("List Dir:", list_dir)
 
     # Tạo dataset cho train và test sử dụng SynapseDataset đã có
     train_dataset = SynapseDataset(base_dir=processed_train_dir, list_dir=list_dir, split='train', transform=None)
-    test_dataset = SynapseDataset(base_dir=processed_test_dir, list_dir=list_dir, split='test', transform=None)
+    test_dataset = SynapseDataset(base_dir=processed_test_dir_3d, list_dir=list_dir, split='test_3d', transform=None)
 
     # Tạo DataLoader (nếu cần)
     train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True, num_workers=0)
