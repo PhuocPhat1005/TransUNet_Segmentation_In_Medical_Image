@@ -1,21 +1,22 @@
-import argparse
-import logging
+import argparse # dùng để phân tích và xử lý các tham số dòng lệnh khi chạy script
 import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 import random
 import numpy as np
 import torch
-import torch.backends.cudnn as cudnn
-from networks.vit_seg_modeling import VisionTransformer as ViT_seg
-from networks.vit_seg_modeling import CONFIGS as CONFIGS_ViT_seg
-from trainer import trainer_synapse
+import torch.backends.cudnn as cudnn # quản lý các cấu hình của cuDNN -> tăng tốc độ huấn luyện trên GPU
+from networks.vit_seg_modeling import VisionTransformer as ViT_seg # import VisionTransformer
+from networks.vit_seg_modeling import CONFIGS as CONFIGS_ViT_seg # import CONFIGS
+from trainer import trainer_synapse # import hàm huấn luyện cho tập dữ liệu Synapse
 
+# Khởi tạo parser để nhận các tham số dòng lệnh
 parser = argparse.ArgumentParser()
 parser.add_argument('--root_path', type=str,
-                    default='../data/Synapse/train_npz', help='root dir for data')
+                    default='../data/synapse/processed/train', help='root dir for data')
 parser.add_argument('--dataset', type=str,
-                    default='Synapse', help='experiment_name')
+                    default='synapse', help='experiment_name')
 parser.add_argument('--list_dir', type=str,
-                    default='./lists/lists_Synapse', help='list dir')
+                    default='../data/synapse/list', help='list dir')
 parser.add_argument('--num_classes', type=int,
                     default=9, help='output channel of network')
 parser.add_argument('--max_iterations', type=int,
@@ -39,16 +40,16 @@ parser.add_argument('--vit_name', type=str,
                     default='R50-ViT-B_16', help='select one vit model')
 parser.add_argument('--vit_patches_size', type=int,
                     default=16, help='vit_patches_size, default is 16')
-args = parser.parse_args()
+args = parser.parse_args() # lệnh này sẽ đọc và phân tích các tham số dòng lệnh -> lưu kết quả vào biến args
 
 
 if __name__ == "__main__":
     if not args.deterministic:
-        cudnn.benchmark = True
-        cudnn.deterministic = False
+        cudnn.benchmark = True # cho phép cuDNN tìm kiếm thuật toán tối ưu dựa trên dữ liệu input
+        cudnn.deterministic = False # không đảm bảo tính định hướng kết quả
     else:
-        cudnn.benchmark = False
-        cudnn.deterministic = True
+        cudnn.benchmark = False # không tối ưu bằng benchmark
+        cudnn.deterministic = True # đảm bảo các phép tính cho kết quả nhất quán khi chạy
 
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -56,9 +57,9 @@ if __name__ == "__main__":
     torch.cuda.manual_seed(args.seed)
     dataset_name = args.dataset
     dataset_config = {
-        'Synapse': {
-            'root_path': '../data/Synapse/train_npz',
-            'list_dir': './lists/lists_Synapse',
+        'synapse': {
+            'root_path': '../data/synapse/processed/train',
+            'list_dir': '../data/synapse/list',
             'num_classes': 9,
         },
     }
@@ -79,15 +80,25 @@ if __name__ == "__main__":
     snapshot_path = snapshot_path + '_'+str(args.img_size)
     snapshot_path = snapshot_path + '_s'+str(args.seed) if args.seed!=1234 else snapshot_path
 
+    # Kiểm tra xem thư mục snapshot_path đã tồn tại hay chưa. Nếu chưa, sử dụng os.makedirs để tạo thư mục đó.
     if not os.path.exists(snapshot_path):
         os.makedirs(snapshot_path)
+
+    # Cấu hình mô hình ViT cho phân đoạn
     config_vit = CONFIGS_ViT_seg[args.vit_name]
     config_vit.n_classes = args.num_classes
     config_vit.n_skip = args.n_skip
+
+    # điều chỉnh cấu hình cho mô hình ResNet50 + ViT-B/16
     if args.vit_name.find('R50') != -1:
         config_vit.patches.grid = (int(args.img_size / args.vit_patches_size), int(args.img_size / args.vit_patches_size))
+
+    # Khởi tạo mô hình và chuyển sang GPU
     net = ViT_seg(config_vit, img_size=args.img_size, num_classes=config_vit.n_classes).cuda()
+    # load trọng số đã được huấn luyện trước cho mô hình
     net.load_from(weights=np.load(config_vit.pretrained_path))
 
-    trainer = {'Synapse': trainer_synapse,}
+    # chọn hàm huấn luyện tương ứng với dataset
+    trainer = {'synapse': trainer_synapse,}
+    # gọi hàm huấn luyện với các tham số đã được cấu hình
     trainer[dataset_name](args, net, snapshot_path)

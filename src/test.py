@@ -1,28 +1,28 @@
-import argparse
-import logging
+import argparse # thư viện -> xử lý các tham số dòng lệnh
+import logging # ghi log thông tin chạy chương trình
 import os
 import random
 import sys
 import numpy as np
-import torch
-import torch.backends.cudnn as cudnn
-import torch.nn as nn
-from torch.utils.data import DataLoader
-from tqdm import tqdm
-from datasets.dataset_synapse import Synapse_dataset
+import torch # thư viện pytorch cho deep learning
+import torch.backends.cudnn as cudnn # cấu hình cuDNN cho việc tối ưu tốc độ tính toán trên GPU
+import torch.nn as nn # các lớp mô hình neural network của Pytorch
+from torch.utils.data import DataLoader # dùng để load dữ liệu theo batch
+from tqdm import tqdm # hiển thị thanh tiến trình khi lặp qua dữ liệu
+from datasets.synapse_dataset import SynapseDataset
 from utils import test_single_volume
 from networks.vit_seg_modeling import VisionTransformer as ViT_seg
 from networks.vit_seg_modeling import CONFIGS as CONFIGS_ViT_seg
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--volume_path', type=str,
-                    default='../data/Synapse/test_vol_h5', help='root dir for validation volume data')  # for acdc volume_path=root_dir
+                    default='../data/synapse/processed/test', help='root dir for validation volume data')  # for acdc volume_path=root_dir
 parser.add_argument('--dataset', type=str,
-                    default='Synapse', help='experiment_name')
+                    default='synapse', help='experiment_name')
 parser.add_argument('--num_classes', type=int,
                     default=4, help='output channel of network')
 parser.add_argument('--list_dir', type=str,
-                    default='./lists/lists_Synapse', help='list dir')
+                    default='../data/synapse/list', help='list dir')
 
 parser.add_argument('--max_iterations', type=int,default=20000, help='maximum epoch number to train')
 parser.add_argument('--max_epochs', type=int, default=30, help='maximum epoch number to train')
@@ -34,7 +34,7 @@ parser.add_argument('--is_savenii', action="store_true", help='whether to save r
 parser.add_argument('--n_skip', type=int, default=3, help='using number of skip-connect, default is num')
 parser.add_argument('--vit_name', type=str, default='ViT-B_16', help='select one vit model')
 
-parser.add_argument('--test_save_dir', type=str, default='../predictions', help='saving prediction as nii!')
+parser.add_argument('--test_save_dir', type=str, default='../src/predictions', help='saving prediction as nii!')
 parser.add_argument('--deterministic', type=int,  default=1, help='whether use deterministic training')
 parser.add_argument('--base_lr', type=float,  default=0.01, help='segmentation network learning rate')
 parser.add_argument('--seed', type=int, default=1234, help='random seed')
@@ -43,7 +43,7 @@ args = parser.parse_args()
 
 
 def inference(args, model, test_save_path=None):
-    db_test = args.Dataset(base_dir=args.volume_path, split="test_vol", list_dir=args.list_dir)
+    db_test = args.Dataset(base_dir=args.volume_path, split="test", list_dir=args.list_dir)
     testloader = DataLoader(db_test, batch_size=1, shuffle=False, num_workers=1)
     logging.info("{} test iterations per epoch".format(len(testloader)))
     model.eval()
@@ -79,9 +79,9 @@ if __name__ == "__main__":
 
     dataset_config = {
         'Synapse': {
-            'Dataset': Synapse_dataset,
-            'volume_path': '../data/Synapse/test_vol_h5',
-            'list_dir': './lists/lists_Synapse',
+            'Dataset': SynapseDataset,
+            'volume_path': '../data/synapse/processed/test',
+            'list_dir': '../data/synapse/list',
             'num_classes': 9,
             'z_spacing': 1,
         },
@@ -96,7 +96,7 @@ if __name__ == "__main__":
 
     # name the same snapshot defined in train script!
     args.exp = 'TU_' + dataset_name + str(args.img_size)
-    snapshot_path = "../model/{}/{}".format(args.exp, 'TU')
+    snapshot_path = "../src/model/{}/{}".format(args.exp, 'TU')
     snapshot_path = snapshot_path + '_pretrain' if args.is_pretrain else snapshot_path
     snapshot_path += '_' + args.vit_name
     snapshot_path = snapshot_path + '_skip' + str(args.n_skip)
@@ -130,7 +130,7 @@ if __name__ == "__main__":
     logging.info(snapshot_name)
 
     if args.is_savenii:
-        args.test_save_dir = '../predictions'
+        args.test_save_dir = '../src/predictions'
         test_save_path = os.path.join(args.test_save_dir, args.exp, snapshot_name)
         os.makedirs(test_save_path, exist_ok=True)
     else:

@@ -1,9 +1,9 @@
 import numpy as np
 import torch
-from medpy import metric
-from scipy.ndimage import zoom
+from medpy import metric # module chứa các hàm tính toán metric cho y tế
+from scipy.ndimage import zoom # hàm dùng để resize ảnh
 import torch.nn as nn
-import SimpleITK as sitk
+import SimpleITK as sitk # thư viện dùng để đọc ảnh y tế
 
 
 class DiceLoss(nn.Module):
@@ -14,9 +14,10 @@ class DiceLoss(nn.Module):
     def _one_hot_encoder(self, input_tensor):
         tensor_list = []
         for i in range(self.n_classes):
-            temp_prob = input_tensor == i  # * torch.ones_like(input_tensor)
-            tensor_list.append(temp_prob.unsqueeze(1))
-        output_tensor = torch.cat(tensor_list, dim=1)
+            temp_prob = input_tensor == i  # * torch.ones_like(input_tensor) # So sánh từng phần tử với label i để tạo mask nhị phân
+            tensor_list.append(temp_prob.unsqueeze(1)) # Thêm 1 chiều (channel) để chuẩn bị cho việc concat
+        output_tensor = torch.cat(tensor_list, dim=1) # Nối các tensor theo chiều channel
+
         return output_tensor.float()
 
     def _dice_loss(self, score, target):
