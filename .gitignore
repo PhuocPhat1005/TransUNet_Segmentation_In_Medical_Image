@@ -181,3 +181,4 @@ __pycache__/
 *.nii.gz
 .env
 samples/
+src/model/
