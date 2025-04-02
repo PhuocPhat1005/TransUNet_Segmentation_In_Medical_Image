@@ -23,7 +23,7 @@ class ModelManager:
     )
 
   def load_model(self):
-    ckpt = torch.load(self.args.pretrain_path)
+    ckpt = torch.load(self.args.pretrain_path, map_location=torch.device(self.args.device))
     self.model.load_state_dict(ckpt['model_state_dict'])
     self.optimizer.load_state_dict(ckpt['optimizer_state_dict'])
     return ckpt['epoch'], ckpt['loss']

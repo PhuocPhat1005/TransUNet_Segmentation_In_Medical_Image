@@ -1,6 +1,7 @@
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from torchvision import transforms
+import numpy as np
 
 from data import datasets
 from data.transforms import RandomGenerator, Zoomer
@@ -14,6 +15,10 @@ class Trainer:
     self.train_loader = self.__load_dataset(self.args.train_path, 'train')
     self.test_loader = self.__load_dataset(self.args.test_path, 'test')
     self.model_manager = ModelManager(args)
+    if (self.args.pretrain_path):
+      self.init_epoch, self.init_loss = self.model_manager.load_model()
+    else:
+      self.init_epoch, self.init_loss = 0, np.inf
 
   def __load_dataset(self, path, split):
     shuffle = split == 'train'
@@ -35,11 +40,12 @@ class Trainer:
 
   def train(self):
     callback = EpochCallback(
-      save_path=self.args.save_path, epochs=self.args.epochs, model=self.model_manager.model,
-      optimizer=self.model_manager.optimizer, monitor='test_loss', patience=self.args.patience
+      save_path=self.args.save_path, epochs=self.args.epochs,
+      model=self.model_manager.model, optimizer=self.model_manager.optimizer,
+      monitor='test_loss', patience=self.args.patience, init_loss=self.init_loss
     )
 
-    for epoch in range(self.args.epochs):
+    for epoch in range(self.init_epoch, self.args.epochs):
       with tqdm(total=len(self.train_loader) + len(self.test_loader)) as t:
         train_loss = self.__loop(self.train_loader, self.model_manager.train_step, t)
         test_loss = self.__loop(self.test_loader, self.model_manager.test_step, t)
