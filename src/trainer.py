@@ -1,4 +1,3 @@
-import logging
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from torchvision import transforms
@@ -8,6 +7,7 @@ from data import datasets
 from data.transforms import RandomGenerator, Zoomer
 from model.manager import ModelManager
 from utils.epoch import EpochCallback
+from utils.logger import Logger
 
 
 class Trainer:
@@ -42,7 +42,7 @@ class Trainer:
     return total_loss, total_ce_loss, total_dice_loss
 
   def train(self):
-    logging.basicConfig(filename=self.args.log_path, filemode='a', level=logging.INFO, format='%(asctime)s - %(message)s')
+    logger = Logger(log_path=self.args.log_path)
     callback = EpochCallback(
       save_path=self.args.save_path, epochs=self.args.epochs,
       model=self.model_manager.model, optimizer=self.model_manager.optimizer,
@@ -62,7 +62,7 @@ class Trainer:
         'test_ce_loss': test_ce_loss / len(self.test_loader),
         'test_dice_loss': test_dice_loss / len(self.test_loader),
       }
-      logging.info(','.join([f'{epoch + 1}', *[f'{value}' for value in hash.values()]]))
+      logger.log('\t'.join([f'{epoch + 1}', *[f'{value}' for value in hash.values()]]))
       callback.epoch_end(epoch + 1, hash)
 
       if callback.end_training: break
