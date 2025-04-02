@@ -126,7 +126,7 @@ class TransUNet(nn.Module):
 if __name__ == '__main__':
   transunet = TransUNet(
     image_dim=512, in_channels=1, out_channels=128, head_num=4,
-    mlp_dim=512, block_num=8, patch_dim=16, class_num=9
+    mlp_dim=512, block_num=12, patch_dim=16, class_num=9
   )
 
   def print_shape_hook(module, input, output):
