@@ -23,9 +23,10 @@ class ModelManager:
     )
 
   def load_model(self):
-    ckpt = torch.load(self.args.pretrain_path, map_location=torch.device(self.args.device))
+    ckpt = torch.load(self.args.pretrain_path, map_location=torch.device(self.args.device), weights_only=True)
     self.model.load_state_dict(ckpt['model_state_dict'])
     self.optimizer.load_state_dict(ckpt['optimizer_state_dict'])
+    print(f'Checkpoint is loaded - epoc: {ckpt['epoch']} loss: {ckpt['loss']}')
     return ckpt['epoch'], ckpt['loss']
 
   def train_step(self, image, mask):
