@@ -37,15 +37,15 @@ class ModelManager:
     pred_mask = self.model(image)
     loss_ce = self.ce_loss(pred_mask, mask[:].long())
     loss_dice = self.dice_loss(pred_mask, mask, softmax=True)
-    loss = (loss_ce + loss_dice) / 2
+    loss = 0.5 * loss_ce + 0.5 * loss_dice
     loss.backward()
     self.optimizer.step()
-    return loss.item(), pred_mask
+    return loss.item(), loss_ce.item(), loss_dice.item()
 
   def test_step(self, image, mask):
     self.model.eval()
     pred_mask = self.model(image)
     loss_ce = self.ce_loss(pred_mask, mask[:].long())
     loss_dice = self.dice_loss(pred_mask, mask, softmax=True)
-    loss = (loss_ce + loss_dice) / 2
-    return loss.item(), pred_mask
+    loss = 0.5 * loss_ce + 0.5 * loss_dice
+    return loss.item(), loss_ce.item(), loss_dice.item()

@@ -13,6 +13,7 @@ if __name__ == '__main__':
   parser.add_argument('--train_path', required='train' in sys.argv,  type=str, default=None)
   parser.add_argument('--test_path', required='train' in sys.argv, type=str, default=None)
   parser.add_argument('--save_path', required='train' in sys.argv, type=str, default=None)
+  parser.add_argument('--log_path', required='train' in sys.argv, type=str, default=None)
   parser.add_argument('--pretrain_path', required='infer' in sys.argv, type=str, default=None)
   parser.add_argument('--image_path', required='infer' in sys.argv, type=str, default=None)
   parser.add_argument('--infer_save_path', type=str, default=None)
