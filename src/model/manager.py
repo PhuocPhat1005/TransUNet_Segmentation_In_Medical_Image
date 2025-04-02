@@ -17,8 +17,7 @@ class ModelManager:
     self.model = nn.DataParallel(self.model)
     self.model.to(args.device)
 
-    self.dice_loss = DiceLoss(self.args.class_num)
-    self.ce_loss = CrossEntropyLoss()
+    self.criterion = DiceLoss(self.args.class_num)
     self.optimizer = SGD(
       self.model.parameters(), lr=args.learning_rate,
       momentum=args.momentum, weight_decay=args.weight_decay
@@ -35,17 +34,13 @@ class ModelManager:
     self.model.train()
     self.optimizer.zero_grad()
     pred_mask = self.model(image)
-    loss_ce = self.ce_loss(pred_mask, mask[:].long())
-    loss_dice = self.dice_loss(pred_mask, mask, softmax=True)
-    loss = 0.5 * loss_ce + 0.5 * loss_dice
+    loss = self.criterion(pred_mask, mask, softmax=True)
     loss.backward()
     self.optimizer.step()
-    return loss.item(), loss_ce.item(), loss_dice.item()
+    return loss.item(), pred_mask
 
   def test_step(self, image, mask):
     self.model.eval()
     pred_mask = self.model(image)
-    loss_ce = self.ce_loss(pred_mask, mask[:].long())
-    loss_dice = self.dice_loss(pred_mask, mask, softmax=True)
-    loss = 0.5 * loss_ce + 0.5 * loss_dice
-    return loss.item(), loss_ce.item(), loss_dice.item()
+    loss = self.criterion(pred_mask, mask, softmax=True)
+    return loss.item(), pred_mask

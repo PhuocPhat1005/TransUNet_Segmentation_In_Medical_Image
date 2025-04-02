@@ -30,16 +30,14 @@ class Trainer:
     return loader
   
   def __loop(self, loader, step_function, t):
-    total_loss, total_ce_loss, total_dice_loss = 0, 0, 0
+    total_loss = 0
     for _, data in enumerate(loader):
       image = data['image'].to(self.args.device)
       mask = data['mask'].to(self.args.device)
-      loss, ce_loss, dice_loss = step_function(image=image, mask=mask)
+      loss, _ = step_function(image=image, mask=mask)
       total_loss += loss
-      total_ce_loss += ce_loss
-      total_dice_loss += dice_loss
       t.update()
-    return total_loss, total_ce_loss, total_dice_loss
+    return total_loss
 
   def train(self):
     logger = Logger(log_path=self.args.log_path)
@@ -51,18 +49,12 @@ class Trainer:
 
     for epoch in range(self.init_epoch, self.args.epochs):
       with tqdm(total=len(self.train_loader) + len(self.test_loader)) as t:
-        train_loss, train_ce_loss, train_dice_loss = self.__loop(self.train_loader, self.model_manager.train_step, t)
-        test_loss, test_ce_loss, test_dice_loss = self.__loop(self.test_loader, self.model_manager.test_step, t)
-
+        train_loss = self.__loop(self.train_loader, self.model_manager.train_step, t)
+        test_loss = self.__loop(self.test_loader, self.model_manager.test_step, t)
       hash = {
         'train_loss': train_loss / len(self.train_loader),
-        'train_ce_loss': train_ce_loss / len(self.train_loader),
-        'train_dice_loss': train_dice_loss / len(self.train_loader),
         'test_loss': test_loss / len(self.test_loader),
-        'test_ce_loss': test_ce_loss / len(self.test_loader),
-        'test_dice_loss': test_dice_loss / len(self.test_loader),
       }
       logger.log('\t'.join([f'{epoch + 1}', *[f'{value}' for value in hash.values()]]))
       callback.epoch_end(epoch + 1, hash)
-
       if callback.end_training: break
