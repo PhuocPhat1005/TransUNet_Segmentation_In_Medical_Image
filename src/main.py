@@ -15,8 +15,7 @@ if __name__ == '__main__':
   parser.add_argument('--save_path', required='train' in sys.argv, type=str, default=None)
   parser.add_argument('--pretrain_path', required='infer' in sys.argv, type=str, default=None)
   parser.add_argument('--image_path', required='infer' in sys.argv, type=str, default=None)
-  parser.add_argument('--merge_infer', type=bool, default=False)
-  parser.add_argument('--save_infer', type=bool, default=False)
+  parser.add_argument('--infer_save_path', type=str, default=None)
 
   parser.add_argument('--epochs', type=int, default=200)
   parser.add_argument('--batch_size', type=int, default=16)
@@ -24,7 +23,7 @@ if __name__ == '__main__':
   parser.add_argument('--momentum', type=float, default=0.9)
   parser.add_argument('--weight_decay', type=float, default=1e-4)
   parser.add_argument('--patience', type=int, default=25)
-  parser.add_argument('--inference_threshold', type=float, default=0.75)
+  parser.add_argument('--infer_threshold', type=float, default=0.75)
 
   parser.add_argument('--image_dim', type=int, default=512)
   parser.add_argument('--in_channels', type=int, default=1)
