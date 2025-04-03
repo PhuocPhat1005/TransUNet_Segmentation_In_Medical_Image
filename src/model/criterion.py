@@ -31,7 +31,7 @@ class DiceLoss(nn.Module):
     if weight is None: weight = [1] * self.n_classes
     class_wise_dice = []
     loss = 0
-    for i in range(self.n_classes):
+    for i in range(1, self.n_classes):
       dice = self._dice_loss(pred[:, i], target[:, i])
       class_wise_dice.append(1 - dice.item())
       loss += dice * weight[i]
