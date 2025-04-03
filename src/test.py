@@ -1,6 +1,9 @@
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
 import argparse # thư viện -> xử lý các tham số dòng lệnh
 import logging # ghi log thông tin chạy chương trình
-import os
+
 import random
 import sys
 import numpy as np
@@ -16,22 +19,21 @@ from networks.vit_seg_modeling import CONFIGS as CONFIGS_ViT_seg
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--volume_path', type=str,
-                    default='../data/synapse/processed/test', help='root dir for validation volume data')  # for acdc volume_path=root_dir
+                    default='../data_test/synapse/test', help='root dir for validation volume data')  # for acdc volume_path=root_dir
 parser.add_argument('--dataset', type=str,
                     default='synapse', help='experiment_name')
 parser.add_argument('--num_classes', type=int,
                     default=4, help='output channel of network')
 parser.add_argument('--list_dir', type=str,
-                    default='../data/synapse/list', help='list dir')
+                    default='../data_test/synapse/list', help='list dir')
 
-parser.add_argument('--max_iterations', type=int,default=20000, help='maximum epoch number to train')
-parser.add_argument('--max_epochs', type=int, default=30, help='maximum epoch number to train')
-parser.add_argument('--batch_size', type=int, default=24,
-                    help='batch_size per gpu')
+parser.add_argument('--max_iterations', type=int,default=2000, help='maximum epoch number to train')
+parser.add_argument('--max_epochs', type=int, default=5, help='maximum epoch number to train')
+parser.add_argument('--batch_size', type=int, default=2, help='batch_size per gpu')
 parser.add_argument('--img_size', type=int, default=224, help='input patch size of network input')
 parser.add_argument('--is_savenii', action="store_true", help='whether to save results during inference')
 
-parser.add_argument('--n_skip', type=int, default=3, help='using number of skip-connect, default is num')
+parser.add_argument('--n_skip', type=int, default=2, help='using number of skip-connect, default is num')
 parser.add_argument('--vit_name', type=str, default='ViT-B_16', help='select one vit model')
 
 parser.add_argument('--test_save_dir', type=str, default='../src/predictions', help='saving prediction as nii!')
@@ -78,10 +80,10 @@ if __name__ == "__main__":
     torch.cuda.manual_seed(args.seed)
 
     dataset_config = {
-        'Synapse': {
+        'synapse': {
             'Dataset': SynapseDataset,
-            'volume_path': '../data/synapse/processed/test',
-            'list_dir': '../data/synapse/list',
+            'volume_path': '../data_test/synapse/test',
+            'list_dir': '../data_test/synapse/list',
             'num_classes': 9,
             'z_spacing': 1,
         },
@@ -96,7 +98,7 @@ if __name__ == "__main__":
 
     # name the same snapshot defined in train script!
     args.exp = 'TU_' + dataset_name + str(args.img_size)
-    snapshot_path = "../src/model/{}/{}".format(args.exp, 'TU')
+    snapshot_path = "../model/{}/{}".format(args.exp, 'TU')
     snapshot_path = snapshot_path + '_pretrain' if args.is_pretrain else snapshot_path
     snapshot_path += '_' + args.vit_name
     snapshot_path = snapshot_path + '_skip' + str(args.n_skip)
@@ -118,7 +120,10 @@ if __name__ == "__main__":
     net = ViT_seg(config_vit, img_size=args.img_size, num_classes=config_vit.n_classes).cuda()
 
     snapshot = os.path.join(snapshot_path, 'best_model.pth')
-    if not os.path.exists(snapshot): snapshot = snapshot.replace('best_model', 'epoch_'+str(args.max_epochs-1))
+    if not os.path.exists(snapshot):
+        snapshot = snapshot.replace('best_model', 'epoch_'+str(args.max_epochs-1))
+        if not os.path.exists(snapshot):
+            raise FileNotFoundError(f"Checkpoint file không tồn tại: {snapshot}")
     net.load_state_dict(torch.load(snapshot))
     snapshot_name = snapshot_path.split('/')[-1]
 

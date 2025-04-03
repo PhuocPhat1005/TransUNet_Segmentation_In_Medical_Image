@@ -182,3 +182,5 @@ __pycache__/
 .env
 samples/
 src/model/vit_checkpoint/
+model/
+data_test/

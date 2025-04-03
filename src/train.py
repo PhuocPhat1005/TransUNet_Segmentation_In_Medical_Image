@@ -7,24 +7,24 @@ import torch
 import torch.backends.cudnn as cudnn # quản lý các cấu hình của cuDNN -> tăng tốc độ huấn luyện trên GPU
 from networks.vit_seg_modeling import VisionTransformer as ViT_seg # import VisionTransformer
 from networks.vit_seg_modeling import CONFIGS as CONFIGS_ViT_seg # import CONFIGS
-from trainer import trainer_synapse # import hàm huấn luyện cho tập dữ liệu Synapse
+from trainer import trainer_synapse # import hàm huấn luyện cho tập dữ liệu synapse
 
 # Khởi tạo parser để nhận các tham số dòng lệnh
 parser = argparse.ArgumentParser()
 parser.add_argument('--root_path', type=str,
-                    default='../data/synapse/processed/train', help='root dir for data')
+                    default='../data_test/synapse/train', help='root dir for data')
 parser.add_argument('--dataset', type=str,
                     default='synapse', help='experiment_name')
 parser.add_argument('--list_dir', type=str,
-                    default='../data/synapse/list', help='list dir')
+                    default='../data_test/synapse/list', help='list dir')
 parser.add_argument('--num_classes', type=int,
                     default=9, help='output channel of network')
 parser.add_argument('--max_iterations', type=int,
-                    default=30000, help='maximum epoch number to train')
+                    default=2000, help='maximum epoch number to train')
 parser.add_argument('--max_epochs', type=int,
-                    default=150, help='maximum epoch number to train')
+                    default=5, help='maximum epoch number to train')
 parser.add_argument('--batch_size', type=int,
-                    default=24, help='batch_size per gpu')
+                    default=2, help='batch_size per gpu')
 parser.add_argument('--n_gpu', type=int, default=1, help='total gpu')
 parser.add_argument('--deterministic', type=int,  default=1,
                     help='whether use deterministic training')
@@ -35,7 +35,7 @@ parser.add_argument('--img_size', type=int,
 parser.add_argument('--seed', type=int,
                     default=1234, help='random seed')
 parser.add_argument('--n_skip', type=int,
-                    default=3, help='using number of skip-connect, default is num')
+                    default=2, help='using number of skip-connect, default is num')
 parser.add_argument('--vit_name', type=str,
                     default='R50-ViT-B_16', help='select one vit model')
 parser.add_argument('--vit_patches_size', type=int,
@@ -58,8 +58,8 @@ if __name__ == "__main__":
     dataset_name = args.dataset
     dataset_config = {
         'synapse': {
-            'root_path': '../data/synapse/processed/train',
-            'list_dir': '../data/synapse/list',
+            'root_path': '../data_test/synapse/train',
+            'list_dir': '../data_test/synapse/list',
             'num_classes': 9,
         },
     }

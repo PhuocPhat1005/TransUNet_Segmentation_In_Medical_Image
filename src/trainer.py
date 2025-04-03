@@ -14,6 +14,10 @@ from torch.utils.data import DataLoader # DataLoader để tải dữ liệu the
 from tqdm import tqdm # thư viện để tạo thanh tiến trình
 from utils import DiceLoss # Import hàm mất mát DiceLoss từ tệp utils
 from torchvision import transforms # Module để áp dụng phép biến đổi lên hình ảnh
+from functools import partial
+
+def worker_init_fn(worker_id, seed):
+    random.seed(seed + worker_id)
 
 def trainer_synapse(args, model, snapshot_path):
     from datasets.synapse_dataset import SynapseDataset, SynapseAugmentor
@@ -36,11 +40,11 @@ def trainer_synapse(args, model, snapshot_path):
     print("The length of train set is: {}".format(len(db_train)))
 
     # hàm khởi tạo worker để đảm bảo mỗi worker có seed ngẫu nhiên khác nhau
-    def worker_init_fn(worker_id):
-        random.seed(args.seed + worker_id)
+    # def worker_init_fn(worker_id):
+    #     random.seed(args.seed + worker_id)
 
     # tạo DataLoader để tải dữ liệu theo batch
-    trainloader = DataLoader(db_train, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True, worker_init_fn=worker_init_fn)
+    trainloader = DataLoader(db_train, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True, worker_init_fn=partial(worker_init_fn, seed=args.seed))
 
     # nếu sử dụng nhiều GPUs, bọc mô hình trong DataParallel
     if args.n_gpu > 1:

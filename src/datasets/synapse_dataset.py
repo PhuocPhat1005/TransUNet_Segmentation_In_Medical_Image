@@ -26,7 +26,7 @@ LIST_DIR = os.path.join(project_root, "data", "synapse", "list")
 
 class SynapsePreprocessor:
     """
-    Class Preprocessor cung cấp các phương thức để xử lý raw data cho bộ dataset Synapse.
+    Class Preprocessor cung cấp các phương thức để xử lý raw data cho bộ dataset synapse.
 
     Các chức năng chính bao gồm:
     - Tải dữ liệu NIfIT (.nii.gz) sử dụng nibabel
@@ -249,7 +249,7 @@ class SynapseAugmentor:
 
 class SynapseDataset(Dataset):
     """
-    Dataset tùy chỉnh cho bộ dữ liệu Synapse.
+    Dataset tùy chỉnh cho bộ dữ liệu synapse.
 
     Hỗ trợ đọc file:
       - Với split "train": đọc file .npz chứa các slice 2D đã tiền xử lý.
